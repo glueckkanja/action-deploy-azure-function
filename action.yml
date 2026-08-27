@@ -1,24 +1,75 @@
-name: Reusable Workflow Example
+name: Deploy Azure Function
 description: >
-  Brief description of your workflow.
+  Deploy an Azure Function app from a .NET project.
+  This action is also capable of including NuGet packages if necessary.
 
 inputs:
-  input1:
-    description: "input1 description"
+  dotnet_version:
+    description: "Version of .NET SDK to use (e.g., '10.x')"
     required: true
-  input2:
-    description: "input2 description"
+  tenant_id:
+    description: "Azure Tenant ID"
+    required: true
+  subscription_id:
+    description: "Azure Subscription ID"
+    required: true
+  client_id:
+    description: "Azure Client ID"
+    required: true
+  function_app_name:
+    description: "Name of the Azure Function App to deploy"
+    required: true
+  environment:
+    description: "Deployment environment (e.g., 'staging', 'production')"
+    default: "production"
     required: false
-
-outputs:
-  example-output:
-    description: "output description"
-    value: "output value"
+  funcignore:
+    description: "Respect the .funcignore file during deployment"
+    default: "false"
+    required: false
+  nuget_source_name:
+    description: "Name of the NuGet package source (used in NuGetPackageSourceCredentials_{name}). Leave empty to skip NuGet authentication."
+    required: false
+    default: ""
+  github_pat:
+    description: "GitHub Personal Access Token. Use GitHubs standard secret GITHUB_TOKEN here. Required when nuget_source_name is set."
+    required: false
+  project_path:
+    description: "Relative path to the .csproj file to build and publish"
+    required: true
 
 runs:
   using: composite
   steps:
-    - name: Hello World
+    - name: Checkout files
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      with:
+        dotnet-version: ${{ inputs.dotnet_version }}
+
+    - name: Build and publish
+      env:
+        NUGET_SOURCE_NAME: ${{ inputs.nuget_source_name }}
+        NUGET_USERNAME: ${{ github.actor }}
+        NUGET_PASSWORD: ${{ inputs.github_pat }}
+        PROJECT_PATH: ${{ inputs.project_path }}
       shell: pwsh
-      run: |
-        & "${{ github.action_path }}/scripts/hello-world.ps1"
+      run: '& "${{ github.action_path }}/scripts/build-and-publish.ps1"'
+
+    - name: Login to Azure (OIDC)
+      uses: azure/login@7ddb5af1ef8758cf1353cf3b42f940aee27ba21c # v3.0.2
+      with:
+        client-id: ${{ inputs.client_id }}
+        tenant-id: ${{ inputs.tenant_id }}
+        subscription-id: ${{ inputs.subscription_id }}
+
+    - name: Deploy function app
+      uses: azure/functions-action@c5060b3b8bb1ebbcb531abd00c822ecbaa8ea656 # v1.5.7
+      with:
+        app-name: ${{ inputs.function_app_name }}
+        package: ./publish
+        respect-funcignore: ${{ inputs.funcignore }}
