@@ -1,17 +1,16 @@
-This file should be used to describe your reusable workflow. Please fill all of these pre-defined topics and add more content if there's more to describe.
-!PLEASE KEEP IN MIND TO CONFIGURE SUITABLE BRANCHING AND PROTECTION RULES!
+# action-deploy-azure-function
 
-## Name of The Workflow
+This reusable action simplifies automated azure function deployments especially if they are using NuGet packages.
 
-Describe or summarize the functionality of the workflow here.
+## Deploy Azure Function
+
+Builds and publishes a .NET project, logs in to Azure with OpenID Connect (OIDC), and deploys the published output to an Azure Function App.
 
 ### Calling the action
 
-This example yaml code block should show the usage of you workflow in very detail. Within this code block all variables should be visible so that all functionalities will be understandable.
-
 ```yaml
-# actions.yml in a consumer repository
-name: Any Example Workflow
+# action.yml in a consumer repository
+name: Deploy Azure Function
 
 on:
   push:
@@ -21,25 +20,46 @@ on:
 jobs:
   example-workflow-run:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
+    environment: production
     steps:
       - name: Run Example of Workflow
-        uses: organization/example-workflow-repository@sha-hash # v1.2.3
+        uses: glueckkanja/action-deploy-azure-function@sha-hash # v1.2.3
         with:
-          any-var: "any-value"
+          dotnet_version: "10.x" # required: version of .NET SDK to use
+          tenant_id: "00000000-0000-0000-0000-000000000000" # required: of the tenant id
+          subscription_id: "00000000-0000-0000-0000-000000000000" # required: of the subscription id
+          client_id: "00000000-0000-0000-0000-000000000000" # required: of the client id of the specific function
+          function_app_name: "my-function-app" # required: name of the function app
+          environment: "production" # optional: deployment environment (e.g., 'staging', 'production')
+          funcignore: false # optional: respect the .funcignore file during deployment
+          nuget_source_name: "nuget-src" # optional: if you have configured a nuget.config
+          github_pat: ${{ secrets.GITHUB_TOKEN }} # optional: required when nuget_source_name is set
+          project_path: "./src/MyFunction/MyFunction.csproj" # required: relative path to the .csproj file to build and publish
 ```
 
 ### Permissions
 
-- if the workflow is in need of any declared permission, describe them here
+- `id-token: write` – required by Azure Login for OpenID Connect authentication.
+- `contents: read` – required by the checkout step.
+- `packages: read` – required when restoring packages from GitHub Packages.
 
 ### Inputs
 
-- `any-variable` _(string, required)_ – describe input variables like this and list all of them
+- `dotnet_version` _(string, required)_ – Version of .NET SDK to use.
+- `tenant_id` _(string, required)_ – Azure Tenant ID.
+- `subscription_id` _(string, required)_ – Azure Subscription ID.
+- `client_id` _(string, required)_ – Azure Client ID used for OIDC login.
+- `function_app_name` _(string, required)_ – Name of the Azure Function App to deploy.
+- `environment` _(string, optional)_ – Deployment environment (e.g., 'staging', 'production')
+- `project_path` _(string, required)_ – Relative path to the `.csproj` file to build and publish.
+- `funcignore` _(string, optional)_ – Whether to respect `.funcignore`. Defaults to `false`.
+- `nuget_source_name` _(string, optional)_ – NuGet package source name. Defaults to an empty value.
+- `github_pat` _(string, optional)_ – GitHub Personal Access Token used for NuGet authentication when `nuget_source_name` is set. **Never use this in clear text** - Create a repository secret variable for this.
 
 ### Outputs
 
-- `any-output` – show and list all values that may be provided by your workflow here
-
-### Any Other Important Topics
-
-If there's anything else you want to bring up feel free to create a more detailed description by creating more sub-headings
+This action has no outputs.
